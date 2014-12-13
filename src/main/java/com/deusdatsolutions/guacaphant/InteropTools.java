@@ -6,7 +6,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import cascading.tuple.Fields;
+import cascading.tuple.Tuple;
 import cascading.tuple.TupleEntry;
 
 public class InteropTools {
@@ -45,5 +48,19 @@ public class InteropTools {
 		}
 		
 		return map;
+	}
+
+	
+	public static TupleEntry createTupleEntry(Map<String, Object> item) {
+	    Set<String> fields = item.keySet();
+	    TupleEntry te = new TupleEntry( new Fields(fields.toArray(new Comparable<?>[0])), Tuple.size(fields.size()));
+	    for(String field : fields) {
+		Object value = item.get(field);
+		if(value instanceof Map) {
+		    value = createTupleEntry((Map<String, Object>) value);
+		}
+		te.setObject(field, value);
+	    }
+	    return te;
 	}
 }
