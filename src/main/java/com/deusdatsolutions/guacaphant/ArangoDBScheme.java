@@ -73,7 +73,7 @@ public class ArangoDBScheme extends Scheme {
     }
 
     protected String getPath() {
-	return host + port + database + collection;
+	return host + port + database + collection + aql;
     }
 
     @Override
