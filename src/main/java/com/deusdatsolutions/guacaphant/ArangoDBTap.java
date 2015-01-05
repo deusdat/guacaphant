@@ -57,6 +57,7 @@ public class ArangoDBTap extends Tap<JobConf, RecordReader, OutputCollector> {
 	return System.currentTimeMillis();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public TupleEntryIterator openForRead(FlowProcess<JobConf> conf,
 	    RecordReader reader) throws IOException {

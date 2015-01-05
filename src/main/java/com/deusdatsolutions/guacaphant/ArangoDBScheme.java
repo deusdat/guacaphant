@@ -9,7 +9,6 @@ import cascading.scheme.SinkCall;
 import cascading.scheme.SourceCall;
 import cascading.tap.Tap;
 import cascading.tuple.Fields;
-import cascading.tuple.Tuple;
 import cascading.tuple.TupleEntry;
 
 import com.arangodb.ArangoConfigure;
@@ -18,7 +17,14 @@ import com.arangodb.ArangoException;
 import com.arangodb.CursorResultSet;
 
 @SuppressWarnings("rawtypes")
+/**
+ * Scheme for ArangoDB. Can be used for both Source and Sink. Source should include the AQL parameter, Sink should include the Collection.
+ * @author J Patrick Davenport 
+ *
+ */
 public class ArangoDBScheme extends Scheme {
+    private static final long serialVersionUID = 2782937597264178679L;
+    
     private final String host;
     private final Integer port;
     private final String username;
@@ -32,6 +38,19 @@ public class ArangoDBScheme extends Scheme {
     private transient DriverContext ctx;
     private transient CursorResultSet<Map<String, Object>> cursor;
 
+    /**
+     * Creates an instance of the Scheme.
+     * 
+     * @param host
+     * @param port
+     * @param username
+     * @param password
+     * @param database
+     * @param aql The AQL used for sourcing from ArangoDB.
+     * @param fields
+     * @param collection
+     * @param createCollection
+     */
     public ArangoDBScheme(String host, Integer port, String username,
 	    String password, String database, String aql, Fields fields,
 	    String collection, boolean createCollection) {
