@@ -9,18 +9,23 @@
 			<id>conjars.org</id>
 			<url>http://conjars.org/repo</url>
 		</repository>
+		<repository>
+			<id>arangodb-snapshots</id>
+			<url>https://oss.sonatype.org/content/groups/staging</url>
+		</repository>
 	</repositories>
 
 	<properties>
-		<hadoop.version>1.0.3</hadoop.version>
+		<hadoop.version>1.2.1</hadoop.version>
 		<java.version>1.6</java.version>
+		<arangodb.version>[2.3-SNAPSHOT,2.3]</arangodb.version>
 	</properties>
 
 	<dependencies>
 		<dependency>
 			<groupId>com.arangodb</groupId>
 			<artifactId>arangodb-java-driver</artifactId>
-			<version>[2.2-SNAPSHOT,2.2]</version>
+			<version>${arangodb.version}</version>
 		</dependency>
 
 		<dependency>

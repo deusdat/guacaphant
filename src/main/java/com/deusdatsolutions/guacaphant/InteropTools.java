@@ -51,6 +51,7 @@ public class InteropTools {
 	}
 
 	
+	@SuppressWarnings("unchecked")
 	public static TupleEntry createTupleEntry(Map<String, Object> item) {
 	    Set<String> fields = item.keySet();
 	    TupleEntry te = new TupleEntry( new Fields(fields.toArray(new Comparable<?>[0])), Tuple.size(fields.size()));

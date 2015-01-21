@@ -1,163 +1,78 @@
 package com.deusdatsolutions.guacaphant;
 
 import java.io.IOException;
-import java.util.Map;
+
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.OutputCollector;
+import org.apache.hadoop.mapred.RecordReader;
 
 import cascading.flow.FlowProcess;
 import cascading.scheme.Scheme;
 import cascading.scheme.SinkCall;
 import cascading.scheme.SourceCall;
 import cascading.tap.Tap;
-import cascading.tuple.Fields;
-import cascading.tuple.TupleEntry;
+import cascading.tuple.Tuple;
 
-import com.arangodb.ArangoConfigure;
-import com.arangodb.ArangoDriver;
-import com.arangodb.ArangoException;
-import com.arangodb.CursorResultSet;
-
-@SuppressWarnings("rawtypes")
+@SuppressWarnings("unchecked")
 /**
- * Scheme for ArangoDB. Can be used for both Source and Sink. Source should include the AQL parameter, Sink should include the Collection.
- * @author J Patrick Davenport 
+ * The scheme used to interact with ArangoDB's query API. 
+ * 
+ * The mainQuery is the bulk of the query with the actual logic in it.
+ * <p>For example: mainQuery = "FOR u IN users FILTER u.name == 'Bob'"</p>
+ * 
+ * The returnClause is the return statement
+ * <p>For example: RETURN u</p>
+ * 
+ * The sortClause is the snippet of a sort statement for the results. This is
+ * necessary when the split size is designated.
+ * <p>For example: u.last_name</p>
+ * 
+ * 
+ * @author jdavenpo
  *
  */
-public class ArangoDBScheme extends Scheme {
-    private static final long serialVersionUID = 2782937597264178679L;
-    
-    private final String host;
-    private final Integer port;
-    private final String username;
-    private final String password;
-    private final String database;
-    private final String collection;
-    private final boolean createCollection;
-    private final String aql;
-
-    private transient ArangoDriver driver;
-    private transient DriverContext ctx;
-    private transient CursorResultSet<Map<String, Object>> cursor;
-
-    /**
-     * Creates an instance of the Scheme.
-     * 
-     * @param host
-     * @param port
-     * @param username
-     * @param password
-     * @param database
-     * @param aql The AQL used for sourcing from ArangoDB.
-     * @param fields
-     * @param collection
-     * @param createCollection
-     */
-    public ArangoDBScheme(String host, Integer port, String username,
-	    String password, String database, String aql, Fields fields,
-	    String collection, boolean createCollection) {
-
-	super(fields);
-	this.host = host;
-	this.port = port;
-	this.username = username;
-	this.password = password;
-	this.database = database;
-	this.collection = collection;
-	this.createCollection = createCollection;
-	this.aql = aql;
-	init();
-    }
-
-    private void readObject(java.io.ObjectInputStream in) throws IOException,
-	    ClassNotFoundException {
-	init();
-    }
-
-    private void init() {
-	ArangoConfigure conf = new ArangoConfigure();
-	if (this.host != null)
-	    conf.setHost(host);
-	if (this.database != null)
-	    conf.setDefaultDatabase(database);
-	if (port != null)
-	    conf.setPort(port);
-	if (username != null)
-	    conf.setUser(username);
-	if (password != null)
-	    conf.setPassword(password);
-
-	conf.init();
-	driver = new ArangoDriver(conf);
-
-	ctx = new DriverContext(driver, collection, createCollection);
-    }
-
-    protected String getPath() {
-	return host + port + database + collection + aql;
-    }
-
-    @Override
-    public void sourceConfInit(FlowProcess flowProcess, Tap tap, Object conf) {
-	System.out.println("Hello");
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public void sinkCleanup(FlowProcess flowProcess, SinkCall sinkCall)
-	    throws IOException {
-	super.sinkCleanup(flowProcess, sinkCall);
-    }
-
-    @Override
-    public void sinkConfInit(FlowProcess flowProcess, Tap tap, Object conf) {
-
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public Fields retrieveSourceFields(FlowProcess flowProcess, Tap tap) {
-	setSourceFields(getSourceFields());
-	return super.retrieveSourceFields(flowProcess, tap);
-    }
-
-    @Override
-    public boolean source(FlowProcess flowProcess, SourceCall sourceCall)
-	    throws IOException {
-	if(!cursor.hasNext())
-	    return false;
-	Map<String, Object> input = cursor.next();
-	TupleEntry te = sourceCall.getIncomingEntry();
+public class ArangoDBScheme extends Scheme<JobConf, RecordReader, OutputCollector, Object[], Object[]>{
+	private static final long	serialVersionUID	= 1L;
+	private String database;
+	private String mainQuery;
+	private String sortClause;
+	private int concurrentReads;
 	
-	TupleEntry doc = InteropTools.createTupleEntry(input);
-	te.getTuple().clear();
-	te.setTuple(doc.selectTuple(te.getFields()));
-	return true;
-    }
-
-    @Override
-    public void sink(FlowProcess flowProcess, SinkCall sinkCall)
-	    throws IOException {
-	TupleEntry tupleEntry = sinkCall.getOutgoingEntry();
-	ArangoDBTupleEntryCollector outputCollector = (ArangoDBTupleEntryCollector) sinkCall
-		.getOutput();
-
-	outputCollector.collect(ctx, tupleEntry);
-    }
-
-    protected ArangoDriver getDriver() {
-	return driver;
-    }
-
-    @SuppressWarnings("unchecked")
-    public CursorResultSet<Map<String, Object>> executeQuery()
-	    throws IOException {
-	if (cursor == null) {
-	    try {
-		cursor = driver.executeQueryWithResultSet(aql, (Map) null,
-			Map.class, false, 10);
-	    } catch (ArangoException e) {
-		throw new IOException(e);
-	    }
+	@Override
+	public void sourceConfInit(FlowProcess<JobConf> flowProcess,
+			Tap<JobConf, RecordReader, OutputCollector> tap, JobConf conf) {
+		conf.setInputFormat(ArangoDBInputFormat.class);
+		ArangoDBConfiguration c = new ArangoDBConfiguration(conf);
+		c.setDatabase(database);
+		c.setMainQuery(mainQuery);
+		c.setSortStatement(sortClause);
+		c.setPartitions(concurrentReads);
 	}
-	return cursor;
-    }
+
+	@Override
+	public void sinkConfInit(FlowProcess<JobConf> flowProcess,
+			Tap<JobConf, RecordReader, OutputCollector> tap, JobConf conf) {
+	}
+
+	@Override
+	public boolean source(FlowProcess<JobConf> flowProcess,
+			SourceCall<Object[], RecordReader> sourceCall) throws IOException {
+		Object key = sourceCall.getContext()[0];
+		Object value = sourceCall.getContext()[1];
+		boolean result =sourceCall.getInput().next(key, value);
+		
+		if(!result) {
+			return false;
+		}
+		
+		Tuple t = ((ArangoDBWriter)value).getTuple();
+		sourceCall.getIncomingEntry().setTuple(t);
+		return true;
+	}
+
+	@Override
+	public void sink(FlowProcess<JobConf> flowProcess,
+			SinkCall<Object[], OutputCollector> sinkCall) throws IOException {
+	}
+
 }

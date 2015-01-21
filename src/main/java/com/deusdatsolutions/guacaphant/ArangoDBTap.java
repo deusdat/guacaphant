@@ -1,107 +1,89 @@
 package com.deusdatsolutions.guacaphant;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.util.Map;
 
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.RecordReader;
 
-import com.arangodb.ArangoException;
-import com.arangodb.CursorResultSet;
-
 import cascading.flow.FlowProcess;
 import cascading.tap.Tap;
-import cascading.tuple.TupleEntry;
 import cascading.tuple.TupleEntryCollector;
 import cascading.tuple.TupleEntryIterator;
-import cascading.tuple.TupleEntrySchemeIterator;
+import static com.deusdatsolutions.guacaphant.utils.MiscOps.*;
 
-/**
- * A tap for Cascading to get information in and out of ArangoDB.
- * 
- * @author J Patrick Davenport
- *
- */
 @SuppressWarnings("rawtypes")
 public class ArangoDBTap extends Tap<JobConf, RecordReader, OutputCollector> {
-    private static final long serialVersionUID = 1L;
-    private final ArangoDBScheme scheme;
 
-    @SuppressWarnings("unchecked")
-    public ArangoDBTap(ArangoDBScheme scheme) {
-	super(scheme);
-	this.scheme = scheme;
-    }
+	private static final long	serialVersionUID	= 6215877448790957829L;
+	private String				username;
+	private String				password;
+	private String				baseUrl;
 
-    @Override
-    public boolean createResource(JobConf conf) throws IOException {
-	// TODO Come back to the philosophy of this.
-	return true;
-    }
-
-    @Override
-    public boolean deleteResource(JobConf arg0) throws IOException {
-	// TODO Come back to the philosophy of this.
-	return false;
-    }
-
-    @Override
-    public String getIdentifier() {
-	return scheme.getPath();
-    }
-
-    @Override
-    public long getModifiedTime(JobConf arg0) throws IOException {
-	return System.currentTimeMillis();
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public TupleEntryIterator openForRead(FlowProcess<JobConf> conf,
-	    RecordReader reader) throws IOException {
-	final CursorResultSet<Map<String, Object>> cursor = scheme
-		.executeQuery();
-	return new TupleEntrySchemeIterator(conf,
-		getScheme(), new Closeable() {
-
-		    @Override
-		    public void close() throws IOException {
-			try {
-			    cursor.close();
-			} catch (ArangoException e) {
-			    throw new IOException(e);
-			}
-		    }
-		});
-    }
-
-    @Override
-    public TupleEntryCollector openForWrite(FlowProcess<JobConf> conf,
-	    OutputCollector outputCollector) throws IOException {
-	return new ArangoDBTupleEntryCollector(conf, this.getScheme());
-    }
-
-    @Override
-    public boolean resourceExists(JobConf conf) throws IOException {
-	return true;
-    }
-
-    @Override
-    public boolean equals(Object object) {
-	if (object == null || !(object instanceof ArangoDBTap)) {
-	    return false;
+	public ArangoDBTap(final String baseUrl) {
+		this.baseUrl = baseUrl;
 	}
 
-	ArangoDBTap t = (ArangoDBTap) object;
-	return t.getIdentifier().equals(this.getIdentifier());
-    }
+	public ArangoDBTap(final String baseUrl, final String username,
+			final String password) {
+		this(baseUrl);
+		this.username = username;
+		this.password = password;
+	}
 
-    @Override
-    public int hashCode() {
-	int result = 31 * super.hashCode();
-	return result + this.getIdentifier().hashCode();
-    }
+	@Override
+	public String getIdentifier() {
+		return null;
+	}
+
+	@Override
+	public void sourceConfInit(FlowProcess<JobConf> flowProcess, JobConf conf) {
+		FileInputFormat.setInputPaths(conf, this.getPath());
+		if (has(username)) {
+			ArangoDBConfiguration.set(conf, baseUrl, username, password);
+		} else {
+			ArangoDBConfiguration.set(conf, baseUrl);
+		}
+		
+		super.sourceConfInit(flowProcess, conf);
+	}
+
+	private Path getPath() {
+		return new Path(this.baseUrl);
+	}
+
+	@Override
+	public TupleEntryIterator openForRead(FlowProcess<JobConf> flowProcess,
+			RecordReader input) throws IOException {
+		return null;
+	}
+
+	@Override
+	public TupleEntryCollector openForWrite(FlowProcess<JobConf> flowProcess,
+			OutputCollector output) throws IOException {
+		return null;
+	}
+
+	@Override
+	public boolean createResource(JobConf conf) throws IOException {
+		return false;
+	}
+
+	@Override
+	public boolean deleteResource(JobConf conf) throws IOException {
+		return false;
+	}
+
+	@Override
+	public boolean resourceExists(JobConf conf) throws IOException {
+		return false;
+	}
+
+	@Override
+	public long getModifiedTime(JobConf conf) throws IOException {
+		return 0;
+	}
 
 }
