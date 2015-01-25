@@ -3,11 +3,17 @@ package com.deusdatsolutions.guacaphant;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.JobConfigurable;
+import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.Reporter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.arangodb.ArangoDriver;
 import com.arangodb.ArangoException;
@@ -16,6 +22,9 @@ import com.arangodb.entity.CursorEntity;
 
 public class ArangoDBInputFormat implements
 		InputFormat<LongWritable, ArangoDBWriter>, JobConfigurable {
+	private static final Logger LOG = LoggerFactory.getLogger(ArangoDBInputFormat.class);
+	
+	
 	protected ArangoDBConfiguration	dbConfig;
 	private int						reads;
 	private String					mainQuery;
@@ -25,7 +34,7 @@ public class ArangoDBInputFormat implements
 	@Override
 	public RecordReader<LongWritable, ArangoDBWriter> getRecordReader(
 			InputSplit split, JobConf arg1, Reporter arg2) throws IOException {
-		return null;
+		return new ArangoDBRecordReader((ArangoDBSplit) split, arg1);
 	}
 
 	@Override
@@ -36,7 +45,7 @@ public class ArangoDBInputFormat implements
 		long offset = findSplitSize(connection, numSplits);
 
 		InputSplit[] splits = new InputSplit[numSplits];
-		boolean fromSplit = numSplits == 1;
+		boolean fromSplit = numSplits > 1;
 		for (int i = 0; i < numSplits; i++) {
 			ArangoDBSplit split = new ArangoDBSplit(i * offset, offset,
 					fromSplit);
@@ -48,9 +57,10 @@ public class ArangoDBInputFormat implements
 	protected long findSplitSize(ArangoDriver connection, int numSplits)
 			throws IOException {
 		try {
+			String createCountQuery = createCountQuery();
 			@SuppressWarnings("rawtypes")
 			CursorEntity<Map> countCursor = connection.executeQuery(
-					createCountQuery(), null, Map.class, true, 1);
+					createCountQuery, null, Map.class, true, 1);
 			int queryCount = countCursor.getCount();
 			long splitSize = (queryCount / numSplits);
 			return splitSize;
@@ -72,8 +82,6 @@ public class ArangoDBInputFormat implements
 		StringBuilder sb = new StringBuilder();
 		sb.append(mainQuery);
 		sb.append("\n");
-		sb.append("LIMIT 1");
-		sb.append("\n");
 		sb.append("RETURN {}");
 		return sb.toString();
 	}
@@ -92,7 +100,9 @@ public class ArangoDBInputFormat implements
 			ArangoDBConfiguration aConf = new ArangoDBConfiguration(conf);
 			ArangoDriver connection = aConf.connection();
 			try {
-				 results = connection.executeQueryWithResultSet(getAQL(), null, Map.class, false, 100);
+				 String aql = getAQL();
+				 LOG.debug("Querying {}", aql);
+				results = connection.executeQueryWithResultSet(aql, null, Map.class, false, 100);
 			} catch (ArangoException e) {
 				throw new IOException(e);
 			}
@@ -166,6 +176,8 @@ public class ArangoDBInputFormat implements
 		private long	offset;
 		private boolean	fromSplit;
 
+		public ArangoDBSplit() {}
+		
 		public ArangoDBSplit(long start, long offset, boolean fromSplit) {
 			super();
 			this.start = start;
@@ -176,7 +188,7 @@ public class ArangoDBInputFormat implements
 		@Override
 		public void readFields(DataInput storage) throws IOException {
 			this.offset = storage.readLong();
-			this.start = storage.readInt();
+			this.start = storage.readLong();
 			this.fromSplit = storage.readBoolean();
 		}
 
@@ -206,7 +218,7 @@ public class ArangoDBInputFormat implements
 
 		@Override
 		public String[] getLocations() throws IOException {
-			return new String[0];
+			return new String[]{};
 		}
 
 	}

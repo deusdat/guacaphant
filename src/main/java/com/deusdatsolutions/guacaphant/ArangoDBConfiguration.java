@@ -18,13 +18,15 @@ public class ArangoDBConfiguration {
 	public static final String	RETURN_CLAUSE	= "mapred.arangodb.return";
 	public static final String	PARTITIONS		= "mapred.arangodb.partions";
 
-	public static void set(JobConf conf, String baseUrl) {
-		set(conf, baseUrl, null, null);
+	public static void set(JobConf conf, String server, int port) {
+		set(conf, server, port, null, null);
 	}
 
-	public static void set(JobConf conf2, String baseUrl, String username,
-			String password) {
+	public static void set(JobConf conf2, String server, int port,
+			String username, String password) {
 		ArangoDBConfiguration c = new ArangoDBConfiguration(conf2);
+		c.setServerUrl(server);
+		c.setPort(port);
 		c.setUsername(username);
 		c.setPassword(password);
 	}
@@ -41,7 +43,8 @@ public class ArangoDBConfiguration {
 	}
 
 	public void setServerUrl(final String url) {
-		conf.set(SERVER, url);
+		if (url != null)
+			conf.set(SERVER, url);
 	}
 
 	public void setPort(int port) {
@@ -54,7 +57,8 @@ public class ArangoDBConfiguration {
 	}
 
 	public void setUsername(String username2) {
-		conf.set(USERNAME, username2);
+		if (username2 != null)
+			conf.set(USERNAME, username2);
 	}
 
 	public String getUsername() {
@@ -66,7 +70,8 @@ public class ArangoDBConfiguration {
 	}
 
 	public void setPassword(String password2) {
-		conf.set(PASSWORD, password2);
+		if (password2 != null)
+			conf.set(PASSWORD, password2);
 	}
 
 	public int getPartitions() {
@@ -82,7 +87,8 @@ public class ArangoDBConfiguration {
 	}
 
 	public void setMainQuery(final String mainQuery) {
-		conf.set(MAIN_QUERY, mainQuery);
+		if (mainQuery != null)
+			conf.set(MAIN_QUERY, mainQuery);
 	}
 
 	public boolean hasCredentials() {
@@ -102,13 +108,15 @@ public class ArangoDBConfiguration {
 	}
 
 	public void setReturnStatement(final String returnStatement) {
-		conf.set(RETURN_CLAUSE, returnStatement);
+		if (returnStatement != null)
+			conf.set(RETURN_CLAUSE, returnStatement);
 	}
-	
+
 	public void setSortStatement(final String sort) {
-		conf.set(SORT_CLAUSE, sort);
+		if (sort != null)
+			conf.set(SORT_CLAUSE, sort);
 	}
-	
+
 	public String getSortStatement() {
 		return conf.get(SORT_CLAUSE);
 	}
@@ -130,7 +138,7 @@ public class ArangoDBConfiguration {
 	}
 
 	public void setConcurrentReads(int splits) {
-		
+
 	}
 
 }

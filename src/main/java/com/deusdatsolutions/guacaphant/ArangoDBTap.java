@@ -1,6 +1,7 @@
 package com.deusdatsolutions.guacaphant;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -10,6 +11,7 @@ import org.apache.hadoop.mapred.RecordReader;
 
 import cascading.flow.FlowProcess;
 import cascading.tap.Tap;
+import cascading.tap.hadoop.io.HadoopTupleEntrySchemeIterator;
 import cascading.tuple.TupleEntryCollector;
 import cascading.tuple.TupleEntryIterator;
 import static com.deusdatsolutions.guacaphant.utils.MiscOps.*;
@@ -20,44 +22,56 @@ public class ArangoDBTap extends Tap<JobConf, RecordReader, OutputCollector> {
 	private static final long	serialVersionUID	= 6215877448790957829L;
 	private String				username;
 	private String				password;
-	private String				baseUrl;
+	private String				server;
+	private int					port;
+	private ArangoDBScheme		scheme;
+	private final String		id;
 
-	public ArangoDBTap(final String baseUrl) {
-		this.baseUrl = baseUrl;
+	public ArangoDBTap(ArangoDBScheme scheme, final String server) {
+		super(scheme);
+		this.id = UUID.randomUUID().toString();
+		this.server = server;
+		this.port = 8529;
+		this.scheme = scheme;
 	}
 
-	public ArangoDBTap(final String baseUrl, final String username,
-			final String password) {
-		this(baseUrl);
+	public ArangoDBTap(ArangoDBScheme scheme, final String server,
+			final int port, final String username, final String password) {
+		this(scheme, server);
+		this.port = port;
 		this.username = username;
 		this.password = password;
 	}
 
 	@Override
 	public String getIdentifier() {
-		return null;
+		return getEndpoint() + id;
 	}
 
 	@Override
 	public void sourceConfInit(FlowProcess<JobConf> flowProcess, JobConf conf) {
 		FileInputFormat.setInputPaths(conf, this.getPath());
 		if (has(username)) {
-			ArangoDBConfiguration.set(conf, baseUrl, username, password);
+			ArangoDBConfiguration.set(conf, server, port, username, password);
 		} else {
-			ArangoDBConfiguration.set(conf, baseUrl);
+			ArangoDBConfiguration.set(conf, server, port);
 		}
-		
+
 		super.sourceConfInit(flowProcess, conf);
 	}
 
 	private Path getPath() {
-		return new Path(this.baseUrl);
+		return new Path(getEndpoint());
+	}
+	
+	private String getEndpoint() {
+		return "http://" + this.server + ":" + port + ":" + scheme.getDatabase();
 	}
 
 	@Override
 	public TupleEntryIterator openForRead(FlowProcess<JobConf> flowProcess,
 			RecordReader input) throws IOException {
-		return null;
+		return new HadoopTupleEntrySchemeIterator(flowProcess, this, input);
 	}
 
 	@Override

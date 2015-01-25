@@ -11,33 +11,77 @@ import cascading.scheme.Scheme;
 import cascading.scheme.SinkCall;
 import cascading.scheme.SourceCall;
 import cascading.tap.Tap;
+import cascading.tuple.Fields;
 import cascading.tuple.Tuple;
 
-@SuppressWarnings("unchecked")
 /**
- * The scheme used to interact with ArangoDB's query API. 
+ * The scheme used to interact with ArangoDB's query API.
  * 
  * The mainQuery is the bulk of the query with the actual logic in it.
- * <p>For example: mainQuery = "FOR u IN users FILTER u.name == 'Bob'"</p>
+ * <p>
+ * For example: mainQuery = "FOR u IN users FILTER u.name == 'Bob'"
+ * </p>
  * 
  * The returnClause is the return statement
- * <p>For example: RETURN u</p>
+ * <p>
+ * For example: RETURN u
+ * </p>
  * 
  * The sortClause is the snippet of a sort statement for the results. This is
  * necessary when the split size is designated.
- * <p>For example: u.last_name</p>
+ * <p>
+ * For example: u.last_name
+ * </p>
  * 
  * 
  * @author jdavenpo
  *
  */
-public class ArangoDBScheme extends Scheme<JobConf, RecordReader, OutputCollector, Object[], Object[]>{
+@SuppressWarnings({ "unchecked", "rawtypes" })
+public class ArangoDBScheme extends
+		Scheme<JobConf, RecordReader, OutputCollector, Object[], Object[]> {
 	private static final long	serialVersionUID	= 1L;
-	private String database;
-	private String mainQuery;
-	private String sortClause;
-	private int concurrentReads;
-	
+	private String				database;
+	private String				mainQuery;
+	private String				returnClause;
+	private String				sortClause;
+	private int					concurrentReads;
+
+	/**
+	 * Constructs an instance of the scheme with the fields set to
+	 * {@link Fields.UNKNOW}.
+	 * 
+	 * @param database
+	 * @param mainQuery
+	 * @param sortClause
+	 * @param concurrentReads
+	 */
+	public ArangoDBScheme(String database, String mainQuery,
+			String returnClause, String sortClause, int concurrentReads) {
+		this(database, mainQuery, returnClause, sortClause, concurrentReads,
+				Fields.UNKNOWN);
+	}
+
+	/**
+	 * Constructs a scheme with a fixed schema for the top level document.
+	 * 
+	 * @param database
+	 * @param mainQuery
+	 * @param sortClause
+	 * @param concurrentReads
+	 * @param fields
+	 */
+	public ArangoDBScheme(String database, String mainQuery,
+			String returnClause, String sortClause, int concurrentReads,
+			Fields fields) {
+		super(fields);
+		this.database = database;
+		this.mainQuery = mainQuery;
+		this.returnClause = returnClause;
+		this.sortClause = sortClause;
+		this.concurrentReads = concurrentReads;
+	}
+
 	@Override
 	public void sourceConfInit(FlowProcess<JobConf> flowProcess,
 			Tap<JobConf, RecordReader, OutputCollector> tap, JobConf conf) {
@@ -47,6 +91,7 @@ public class ArangoDBScheme extends Scheme<JobConf, RecordReader, OutputCollecto
 		c.setMainQuery(mainQuery);
 		c.setSortStatement(sortClause);
 		c.setPartitions(concurrentReads);
+		c.setReturnStatement(returnClause);
 	}
 
 	@Override
@@ -55,17 +100,25 @@ public class ArangoDBScheme extends Scheme<JobConf, RecordReader, OutputCollecto
 	}
 
 	@Override
+	public void sourcePrepare(FlowProcess<JobConf> flowProcess,
+			SourceCall<Object[], RecordReader> sourceCall) throws IOException {
+		RecordReader input = sourceCall.getInput();
+		Object[] pair = new Object[] {input.createKey(), input.createValue()};
+		sourceCall.setContext(pair);
+	}
+	
+	@Override
 	public boolean source(FlowProcess<JobConf> flowProcess,
 			SourceCall<Object[], RecordReader> sourceCall) throws IOException {
 		Object key = sourceCall.getContext()[0];
 		Object value = sourceCall.getContext()[1];
-		boolean result =sourceCall.getInput().next(key, value);
-		
-		if(!result) {
+		boolean result = sourceCall.getInput().next(key, value);
+
+		if (!result) {
 			return false;
 		}
-		
-		Tuple t = ((ArangoDBWriter)value).getTuple();
+
+		Tuple t = ((ArangoDBWriter) value).getTuple();
 		sourceCall.getIncomingEntry().setTuple(t);
 		return true;
 	}
@@ -73,6 +126,10 @@ public class ArangoDBScheme extends Scheme<JobConf, RecordReader, OutputCollecto
 	@Override
 	public void sink(FlowProcess<JobConf> flowProcess,
 			SinkCall<Object[], OutputCollector> sinkCall) throws IOException {
+	}
+
+	public String getDatabase() {
+		return database;
 	}
 
 }
