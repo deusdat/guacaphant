@@ -2,20 +2,20 @@ package com.deusdatsolutions.guacaphant;
 
 import java.util.Map;
 
-import cascading.tuple.Tuple;
+import cascading.tuple.TupleEntry;
 
 public class ArangoDBWriter {
-	private Tuple t;
+	private TupleEntry t;
 	
 	public ArangoDBWriter() {
 		
 	}
 	
 	void read(Map<String, Object> record) {
-		t = InteropTools.createTupleEntry(record).getTuple();
+		t = InteropTools.createTupleEntry(record);
 	}
 	
-	public Tuple getTuple() {
+	public TupleEntry getTupleEntry() {
 		return t;
 	}
 }

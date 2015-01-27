@@ -1,6 +1,7 @@
 package com.deusdatsolutions.guacaphant;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.OutputCollector;
@@ -12,7 +13,7 @@ import cascading.scheme.SinkCall;
 import cascading.scheme.SourceCall;
 import cascading.tap.Tap;
 import cascading.tuple.Fields;
-import cascading.tuple.Tuple;
+import cascading.tuple.TupleEntry;
 
 /**
  * The scheme used to interact with ArangoDB's query API.
@@ -103,10 +104,10 @@ public class ArangoDBScheme extends
 	public void sourcePrepare(FlowProcess<JobConf> flowProcess,
 			SourceCall<Object[], RecordReader> sourceCall) throws IOException {
 		RecordReader input = sourceCall.getInput();
-		Object[] pair = new Object[] {input.createKey(), input.createValue()};
+		Object[] pair = new Object[] { input.createKey(), input.createValue() };
 		sourceCall.setContext(pair);
 	}
-	
+
 	@Override
 	public boolean source(FlowProcess<JobConf> flowProcess,
 			SourceCall<Object[], RecordReader> sourceCall) throws IOException {
@@ -118,9 +119,24 @@ public class ArangoDBScheme extends
 			return false;
 		}
 
-		Tuple t = ((ArangoDBWriter) value).getTuple();
-		sourceCall.getIncomingEntry().setTuple(t);
+		TupleEntry t = ((ArangoDBWriter) value).getTupleEntry();
+		copyTE(t, sourceCall.getIncomingEntry());
 		return true;
+	}
+
+	public void copyTE(final TupleEntry source, final TupleEntry target) {
+		final Fields sourceFields = this.getSourceFields();
+		if (sourceFields.equals(Fields.UNKNOWN)) {
+			target.setTuple(source.getTuple());
+		} else {
+			final Iterator<Comparable> fieldsIt;
+			fieldsIt = sourceFields.iterator();
+			while (fieldsIt.hasNext()) {
+				Comparable field = fieldsIt.next();
+				target.setRaw(field, source.getObject(field));
+			}
+		}
+
 	}
 
 	@Override

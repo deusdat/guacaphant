@@ -75,7 +75,7 @@ public class ArangoDBRecordReaderTest extends TestCase {
 			assertEquals(0, reader.getPos());
 			ArangoDBWriter writer = new ArangoDBWriter();
 			reader.next(new LongWritable(), writer);
-			Tuple tuple = writer.getTuple();
+			Tuple tuple = writer.getTupleEntry().getTuple();
 			assertEquals("Patrick", tuple.getString(0));
 			assertEquals(1, reader.getPos());
 			assertFalse(reader.next(new LongWritable(), writer));
