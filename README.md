@@ -52,7 +52,7 @@ public class Main {
     AppProps.setApplicationJarClass(props, Main.class);
 
     ArangoDBScheme scheme = new ArangoDBScheme("Testing", "FOR u IN Users",
-        "RETURN u", "u.name DESC", 2, new Fields("name", "age");
+        "RETURN u", "u.name DESC", 2, new Fields("name", "age"));
 
     ArangoDBTap input = new ArangoDBTap(scheme, "arangodb");
 
