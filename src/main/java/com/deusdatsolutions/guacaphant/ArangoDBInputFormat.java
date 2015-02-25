@@ -153,7 +153,11 @@ public class ArangoDBInputFormat implements
 
 		@Override
 		public float getProgress() throws IOException {
-			return pos/split.getLength();
+			long length = split.getLength();
+			if(length == 0) {
+				return 1;
+			}
+			return pos/length;
 		}
 
 		@SuppressWarnings("unchecked")
