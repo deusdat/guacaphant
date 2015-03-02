@@ -46,11 +46,12 @@ public class ArangoDBScheme extends
 	private String				mainQuery;
 	private String				returnClause;
 	private String				sortClause;
+	private String				targetCollection;
 	private int					concurrentReads;
 
 	/**
 	 * Constructs an instance of the scheme with the fields set to
-	 * {@link Fields.UNKNOW}.
+	 * {@link Fields.UNKNOW}. Used to read information from ArangoDB.
 	 * 
 	 * @param database
 	 * @param mainQuery
@@ -65,6 +66,7 @@ public class ArangoDBScheme extends
 
 	/**
 	 * Constructs a scheme with a fixed schema for the top level document.
+	 * Used to read information from ArangoDB.
 	 * 
 	 * @param database
 	 * @param mainQuery
@@ -82,12 +84,22 @@ public class ArangoDBScheme extends
 		this.sortClause = sortClause;
 		this.concurrentReads = concurrentReads;
 	}
+	
+	/**
+	 * Constructs a scheme to land data from Hadoop into ArangoDB.
+	 * @param database
+	 * @param targetCollection
+	 */
+	public ArangoDBScheme(String database, String targetCollection) {
+		this.database = database;
+		this.targetCollection = targetCollection;
+	}
 
 	@Override
 	public void sourceConfInit(FlowProcess<JobConf> flowProcess,
 			Tap<JobConf, RecordReader, OutputCollector> tap, JobConf conf) {
-		conf.setInputFormat(ArangoDBInputFormat.class);
 		ArangoDBConfiguration c = new ArangoDBConfiguration(conf);
+		c.setInputFormat();
 		c.setDatabase(database);
 		c.setMainQuery(mainQuery);
 		c.setSortStatement(sortClause);
@@ -98,8 +110,18 @@ public class ArangoDBScheme extends
 	@Override
 	public void sinkConfInit(FlowProcess<JobConf> flowProcess,
 			Tap<JobConf, RecordReader, OutputCollector> tap, JobConf conf) {
+		ArangoDBConfiguration c = new ArangoDBConfiguration(conf);
+		c.setDatabase(database);
+		c.setTargetCollection(targetCollection);
+		c.setOutputFormat();
 	}
 
+	@Override
+	public void sinkPrepare(FlowProcess<JobConf> flowProcess,
+			SinkCall<Object[], OutputCollector> sinkCall) throws IOException {
+		super.sinkPrepare(flowProcess, sinkCall);
+	}
+	
 	@Override
 	public void sourcePrepare(FlowProcess<JobConf> flowProcess,
 			SourceCall<Object[], RecordReader> sourceCall) throws IOException {
@@ -142,10 +164,21 @@ public class ArangoDBScheme extends
 	@Override
 	public void sink(FlowProcess<JobConf> flowProcess,
 			SinkCall<Object[], OutputCollector> sinkCall) throws IOException {
+		OutputCollector outputCollector = sinkCall.getOutput();
+		TupleEntry te = sinkCall.getOutgoingEntry();
+		outputCollector.collect(te, null);
 	}
 
 	public String getDatabase() {
 		return database;
 	}
 
+	@Override
+	public boolean isSink() {
+		return targetCollection != null;
+	}
+	
+	public String getTargetCollection() {
+		return this.targetCollection;
+	}
 }

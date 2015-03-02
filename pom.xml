@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.deusdatsolutions</groupId>
 	<artifactId>guacaphant</artifactId>
-	<version>0.0.2</version>
+	<version>0.5.0</version>
 	<repositories>
 		<repository>
 			<id>conjars.org</id>
@@ -18,7 +18,7 @@
 	<properties>
 		<hadoop.version>1.2.1</hadoop.version>
 		<java.version>1.6</java.version>
-		<arangodb.version>[2.3-SNAPSHOT,2.3]</arangodb.version>
+		<arangodb.version>[2.4-SNAPSHOT,2.4]</arangodb.version>
 	</properties>
 
 	<dependencies>

@@ -7,28 +7,27 @@ import com.arangodb.ArangoConfigure;
 import com.arangodb.ArangoDriver;
 
 public class ArangoDBConfiguration {
-	public static final String	SERVER			= "mapred.arangodb.server";
-	public static final String	PORT			= "mapred.arangodb.port";
-	public static final String	DB_NAME			= "mapred.arangodb.db";
-	public static final String	USERNAME		= "mapred.arangodb.username";
-	public static final String	PASSWORD		= "mapred.arangodb.password";
-	public static final String	NUM_SPLITS		= "mapred.arangodb.splits";
-	public static final String	MAIN_QUERY		= "mapred.arangodb.main_query";
-	public static final String	SORT_CLAUSE		= "mapred.arangodb.sort";
-	public static final String	RETURN_CLAUSE	= "mapred.arangodb.return";
-	public static final String	PARTITIONS		= "mapred.arangodb.partions";
-
-	public static void set(JobConf conf, String server, int port) {
-		set(conf, server, port, null, null);
-	}
+	public static final String	SERVER				= "mapred.arangodb.server";
+	public static final String	PORT				= "mapred.arangodb.port";
+	public static final String	DB_NAME				= "mapred.arangodb.db";
+	public static final String	USERNAME			= "mapred.arangodb.username";
+	public static final String	PASSWORD			= "mapred.arangodb.password";
+	public static final String	NUM_SPLITS			= "mapred.arangodb.splits";
+	public static final String	MAIN_QUERY			= "mapred.arangodb.main_query";
+	public static final String	SORT_CLAUSE			= "mapred.arangodb.sort";
+	public static final String	RETURN_CLAUSE		= "mapred.arangodb.return";
+	public static final String	PARTITIONS			= "mapred.arangodb.partions";
+	public static final String	TARGET_COLLECTION	= "mapred.arangodb.targetcollection";
+	public static final String	WRITE_BATCH_SIZE	= "mapred.arangodb.writebatchsize";
 
 	public static void set(JobConf conf2, String server, int port,
-			String username, String password) {
+			String username, String password, String targetCollection) {
 		ArangoDBConfiguration c = new ArangoDBConfiguration(conf2);
 		c.setServerUrl(server);
 		c.setPort(port);
 		c.setUsername(username);
 		c.setPassword(password);
+		c.setTargetCollection(targetCollection);
 	}
 
 	private final Configuration	conf;
@@ -36,6 +35,18 @@ public class ArangoDBConfiguration {
 
 	public ArangoDBConfiguration(Configuration conf) {
 		this.conf = conf;
+	}
+
+	public void setInputFormat() {
+		if (conf instanceof JobConf) {
+			((JobConf) conf).setInputFormat(ArangoDBInputFormat.class);
+		}
+	}
+
+	public void setOutputFormat() {
+		if (conf instanceof JobConf) {
+			((JobConf) conf).setOutputFormat(ArangoDBOutputFormat.class);
+		}
 	}
 
 	public String getServer() {
@@ -141,4 +152,25 @@ public class ArangoDBConfiguration {
 
 	}
 
+	public void setTargetCollection(String targetCollection) {
+		if (targetCollection != null)
+			conf.set(TARGET_COLLECTION, targetCollection);
+	}
+
+	public String getTargetCollection() {
+		return conf.get(TARGET_COLLECTION);
+	}
+
+	public void setWriteBatchSize(final int size) {
+		conf.setInt(WRITE_BATCH_SIZE, size);
+	}
+
+	/**
+	 * 
+	 * @return the size of the batch to use when writing. If not set, defaults
+	 *         to 1.
+	 */
+	public int getWriteBatchSize() {
+		return conf.getInt(WRITE_BATCH_SIZE, 1);
+	}
 }
