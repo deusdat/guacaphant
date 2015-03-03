@@ -1,25 +1,28 @@
 package com.deusdatsolutions.guacaphant;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import java.io.IOException;
 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapred.JobConf;
+import org.junit.Before;
+import org.junit.Test;
 
-import junit.framework.TestCase;
 import cascading.tuple.Tuple;
 
 import com.deusdatsolutions.guacaphant.ArangoDBInputFormat.ArangoDBRecordReader;
 import com.deusdatsolutions.guacaphant.ArangoDBInputFormat.ArangoDBSplit;
 
-public class ArangoDBRecordReaderTest extends TestCase {
+public class ArangoDBRecordReaderTest {
 	private static final String	RETURN_NAME_U_NAME	= "RETURN {name: u.name}";
 	JobConf						conf;
 	ArangoDBConfiguration		c;
 	ArangoDBInputFormat			format;
 
-	@Override
-	protected void setUp() throws Exception {
-		super.setUp();
+	@Before
+	public void setUp() throws Exception {
 
 		conf = new JobConf();
 		c = new ArangoDBConfiguration(conf);
@@ -32,7 +35,8 @@ public class ArangoDBRecordReaderTest extends TestCase {
 		format.configure(conf);
 	}
 
-	public void testGenerateCorrectAQLForSingleSplit() throws IOException {
+	@Test
+	public void generatesCorrectAQLForSingleSplit() throws IOException {
 		ArangoDBSplit split = new ArangoDBSplit(0, 0, false);
 		ArangoDBRecordReader reader = null;
 		try {
@@ -46,7 +50,8 @@ public class ArangoDBRecordReaderTest extends TestCase {
 
 	}
 
-	public void testGenerateCorrectAQLForPartialSplit() throws IOException {
+	@Test
+	public void generatesCorrectAQLForPartialSplit() throws IOException {
 		ArangoDBSplit split = new ArangoDBSplit(0, 100, true);
 		String sort = "u.name DESC";
 		c.setSortStatement(sort);
@@ -63,7 +68,8 @@ public class ArangoDBRecordReaderTest extends TestCase {
 
 	}
 
-	public void testRecordIteration() throws IOException {
+	@Test
+	public void recordIteration() throws IOException {
 		ArangoDBSplit split = new ArangoDBSplit(0, 1, true);
 		ArangoDBRecordReader reader = null;
 		String sort = "u.name DESC";

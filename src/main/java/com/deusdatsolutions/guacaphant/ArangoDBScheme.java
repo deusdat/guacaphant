@@ -166,7 +166,8 @@ public class ArangoDBScheme extends
 			SinkCall<Object[], OutputCollector> sinkCall) throws IOException {
 		OutputCollector outputCollector = sinkCall.getOutput();
 		TupleEntry te = sinkCall.getOutgoingEntry();
-		outputCollector.collect(te, null);
+		TupleEntry cleanedUp = te.selectEntry(getSinkFields());
+		outputCollector.collect(cleanedUp, null);
 	}
 
 	public String getDatabase() {

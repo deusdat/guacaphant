@@ -13,14 +13,13 @@ import org.apache.hadoop.mapred.RecordWriter;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.Progressable;
 
-import cascading.tuple.Fields;
 import cascading.tuple.TupleEntry;
 
 import com.arangodb.ArangoDriver;
 import com.arangodb.ArangoException;
-import com.arangodb.entity.DefaultEntity;
 
 
+@SuppressWarnings("rawtypes")
 public class ArangoDBOutputFormat implements OutputFormat, JobConfigurable {
 	private static final Log	LOG	= LogFactory
 											.getLog(ArangoDBOutputFormat.class);
@@ -28,30 +27,18 @@ public class ArangoDBOutputFormat implements OutputFormat, JobConfigurable {
 	protected class ArangoDBRecordWriter implements
 			RecordWriter<TupleEntry, Void> {
 		private final ArangoDriver	conn;
-		private final int			batchSize;
-		private long				sent;
 		private final String		targetCollection;
-		private final Fields		finalFields;
 
-		public ArangoDBRecordWriter(ArangoDriver connection, int batchSize,
-				String targetCollection, boolean fireAndForget,
-				Fields finalFields) {
+		public ArangoDBRecordWriter(ArangoDriver connection,
+				String targetCollection, boolean fireAndForget) {
 
 			this.conn = connection;
-			this.batchSize = batchSize;
 			this.targetCollection = targetCollection;
-			this.finalFields = finalFields;
 
 			startBatch();
 		}
 
 		private void startBatch() {
-//			try {
-//				conn.startBatchMode();
-//				this.sent = 0;
-//			} catch (ArangoException e) {
-//				new IOException(e);
-//			}
 		}
 
 		@Override
@@ -66,7 +53,6 @@ public class ArangoDBOutputFormat implements OutputFormat, JobConfigurable {
 		}
 
 		private void createDocument(TupleEntry te) throws IOException {
-			this.sent++;
 			Map<String, Object> jsonMap = InteropTools.createMap(te);
 			try {
 				conn.createDocument(targetCollection, jsonMap);
@@ -76,17 +62,7 @@ public class ArangoDBOutputFormat implements OutputFormat, JobConfigurable {
 		}
 
 		private void flushBatch(boolean restart) throws IOException {
-//			try {
-//				if (this.sent == this.batchSize || !restart) {
-//					DefaultEntity executeBatch = conn.executeBatch();
-//					
-//					if (restart) {
-//						startBatch();
-//					}
-//				}
-//			} catch (ArangoException e) {
-//				throw new IOException(e);
-//			}
+
 		}
 	}
 
@@ -103,10 +79,8 @@ public class ArangoDBOutputFormat implements OutputFormat, JobConfigurable {
 		ArangoDBConfiguration c = new ArangoDBConfiguration(conf);
 		String targetCollection = c.getTargetCollection();
 		ArangoDriver connection = c.connection();
-		int batchSize = /* c.getWriteBatchSize() */ 1;
 
-		return new ArangoDBRecordWriter(connection, batchSize, targetCollection, false,
-				Fields.ALL);
+		return new ArangoDBRecordWriter(connection, targetCollection, false);
 	}
 
 	@Override

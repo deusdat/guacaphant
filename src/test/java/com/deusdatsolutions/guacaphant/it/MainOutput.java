@@ -1,4 +1,4 @@
-package guac;
+package com.deusdatsolutions.guacaphant.it;
 
 import java.util.Properties;
 
