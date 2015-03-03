@@ -74,9 +74,9 @@ public class ArangoDBTap extends Tap<JobConf, RecordReader, OutputCollector> {
 
 	@Override
 	public void sinkConfInit(FlowProcess<JobConf> flowProcess, JobConf conf) {
+		super.sinkConfInit(flowProcess, conf);
 		if (!isSink())
 			return;
-		super.sinkConfInit(flowProcess, conf);
 		configArango(conf);
 	}
 

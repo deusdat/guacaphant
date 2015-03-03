@@ -4,14 +4,16 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.IOFileFilter;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -20,9 +22,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
-import cascading.flow.Flow;
 import cascading.flow.FlowDef;
-import cascading.flow.hadoop.HadoopFlowConnector;
+import cascading.flow.FlowProcess;
+import cascading.operation.BaseOperation;
+import cascading.operation.Function;
+import cascading.operation.FunctionCall;
 import cascading.operation.Identity;
 import cascading.pipe.Each;
 import cascading.pipe.GroupBy;
@@ -33,6 +37,8 @@ import cascading.scheme.hadoop.TextDelimited;
 import cascading.tap.SinkMode;
 import cascading.tap.hadoop.Hfs;
 import cascading.tuple.Fields;
+import cascading.tuple.Tuple;
+import cascading.tuple.TupleEntry;
 
 import com.arangodb.ArangoConfigure;
 import com.arangodb.ArangoDriver;
@@ -42,7 +48,7 @@ import com.deusdatsolutions.guacaphant.ArangoDBTap;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({ SourceTapIT.SimpleRead.class,
-		SourceTapIT.ComplexRead.class })
+		SourceTapIT.ComplexRead.class})
 public class SourceTapIT {
 	public static ArangoDriver	driver;
 
@@ -57,34 +63,48 @@ public class SourceTapIT {
 		driver.createDatabase(aConf.getDefaultDatabase());
 	}
 
-	public static List<Map<String, String>> getOutput(final String location, String...keys)
-			throws IOException {
-		LinkedList<Map<String, String>> result = new LinkedList<Map<String, String>>();
-		List<String> readLines = FileUtils.readLines(new File(location
-				+ "/part-00000"));
-		for (String row : readLines) {
-			String[] split = row.split(",");
-			assertEquals("Keys should match split columns", keys.length, split.length);
-			HashMap<String, String> person = new HashMap<String, String>();
-			for(int i = 0; i < split.length; i++) {
-				person.put(keys[i], split[i]);
+	public static Set<Map<String, String>> getOutput(final String location,
+			String... keys) throws IOException {
+		Set<Map<String, String>> result = new HashSet<Map<String, String>>();
+
+		Collection<File> parts = FileUtils.listFiles(new File(location),
+				new IOFileFilter() {
+
+					@Override
+					public boolean accept(File file) {
+						return accept(file, file.getName());
+					}
+
+					@Override
+					public boolean accept(File dir, String name) {
+						return name.startsWith("part");
+					}
+
+				}, null);
+
+		for (File part : parts) {
+			List<String> readLines = FileUtils.readLines(part);
+			for (String row : readLines) {
+				String[] split = row.split(",");
+				assertEquals("Keys should match split columns", keys.length,
+						split.length);
+				HashMap<String, String> person = new HashMap<String, String>();
+				for (int i = 0; i < split.length; i++) {
+					person.put(keys[i], split[i]);
+				}
+				result.add(person);
 			}
-			result.add(person);
 		}
 		return result;
 	}
 
 	public static class SimpleRead {
 		private final String				collection	= "SimpleReading";
-		private List<Map<String, String>>	data		= new ArrayList<Map<String, String>>();
+		private Set<Map<String, String>>	data		= new HashSet<Map<String, String>>();
 
 		@Before
 		public void prep() throws Exception {
-			try {
-				driver.createCollection(collection);
-			} catch (ArangoException ex) {
-
-			}
+			driver.createCollection(collection);
 			Map<String, String> person1 = new HashMap<String, String>();
 			person1.put("name", "J Patrick Davenport");
 			person1.put("age", "32");
@@ -101,7 +121,7 @@ public class SourceTapIT {
 
 		@SuppressWarnings({ "rawtypes", "unchecked" })
 		@Test
-		public void read() throws IOException, InterruptedException {
+		public void read() throws Exception {
 			Properties props = new Properties();
 			AppProps.setApplicationJarClass(props, SimpleRead.class);
 
@@ -110,9 +130,7 @@ public class SourceTapIT {
 					"RETURN {'name': u.name, 'age': u.age}", "u.name DESC", 2,
 					new Fields("name", "age"));
 
-			// ArangoDBTap input = new ArangoDBTap(scheme, "arangodb");
-			ArangoDBTap input = new ArangoDBTap(scheme, "10.0.0.185", 8529,
-					"root", "", null);
+			ArangoDBTap input = new ArangoDBTap(scheme, "arangodb", null);
 
 			Scheme outScheme = new TextDelimited(Fields.ALL, ",");
 			String outputPath = "/tmp/simpleread";
@@ -125,11 +143,10 @@ public class SourceTapIT {
 			FlowDef flowDef = new FlowDef().addSource(in, input).addTailSink(
 					out, devNull);
 
-			Flow flow = new HadoopFlowConnector().connect(flowDef);
-			flow.start();
-			Thread.sleep(1000);
+			Misc.executeFlowDef(flowDef);
 
-			List<Map<String, String>> output = getOutput(outputPath, "name", "age");
+			Set<Map<String, String>> output = getOutput(outputPath, "name",
+					"age");
 			assertEquals(2, output.size());
 			assertTrue(output.containsAll(data));
 		}
@@ -141,15 +158,102 @@ public class SourceTapIT {
 	}
 
 	public static class ComplexRead {
-		private final String	collection	= "ComplexRead";
+		protected final String					collection	= "ComplexRead";
+		protected final Set<Map<String, Object>>	data		= new HashSet<Map<String, Object>>();
 
 		@Before
 		public void prep() throws ArangoException {
 			driver.createCollection(collection);
+
+			{
+				Map<String, String> address1 = new HashMap<String, String>();
+				address1.put("city", "Palatka");
+				Map<String, Object> person1 = new HashMap<String, Object>();
+				person1.put("name", "J Patrick Davenport");
+				person1.put("age", "33");
+				person1.put("address", address1);
+				data.add(person1);
+				driver.createDocument(collection, person1);
+			}
+
+			{
+				Map<String, String> address1 = new HashMap<String, String>();
+				address1.put("city", "South Bend");
+				Map<String, Object> person1 = new HashMap<String, Object>();
+				person1.put("name", "Amber Davenport");
+				person1.put("age", "32");
+				person1.put("address", address1);
+				data.add(person1);
+				driver.createDocument(collection, person1);
+			}
 		}
 
+		@SuppressWarnings({ "rawtypes", "unchecked" })
 		@Test
-		public void read() {
+		public void read() throws Exception {
+			Properties props = new Properties();
+			AppProps.setApplicationJarClass(props, SimpleRead.class);
+
+			ArangoDBScheme scheme = new ArangoDBScheme(
+					driver.getDefaultDatabase(),
+					"FOR u IN " + collection,
+					"RETURN {'name': u.name, 'age': u.age, 'address': u.address}",
+					"u.name DESC", 2, new Fields("name", "age", "address"));
+			ArangoDBTap inputTap = new ArangoDBTap(scheme, "arangodb", null);
+
+			Scheme outScheme = new TextDelimited(Fields.ALL, ",");
+			String outputPath = "/tmp/complexread";
+			Hfs outputTap = new Hfs(outScheme, outputPath, SinkMode.REPLACE);
+
+			Pipe in = new Pipe("FromArango");
+			Pipe cause = new Each(in, new Identity());
+			Pipe out = new Each(cause, new Flattener());
+
+			FlowDef flowDef = new FlowDef().addSource(in, inputTap)
+					.addTailSink(out, outputTap);
+
+			Misc.executeFlowDef(flowDef);
+
+			Set<Map<String, String>> output = getOutput(outputPath, "name",
+					"age", "city");
+			assertEquals(2, output.size());
+			for (Map<String, Object> doc : data) {
+				Map<String, String> address = (Map<String, String>) doc
+						.get("address");
+				doc.remove("address");
+				doc.put("city", address.get("city"));
+			}
+			assertTrue(output.containsAll(data));
+		}
+
+		/**
+		 * Flattens the document into easier to work with Tuples.
+		 * 
+		 * @author J Patrick Davenport
+		 *
+		 */
+		private static final class Flattener extends BaseOperation<Void>
+				implements Function<Void> {
+			private static final long	serialVersionUID	= 1L;
+
+			public Flattener() {
+				super(new Fields("name", "age", "city"));
+			}
+
+			@SuppressWarnings("rawtypes")
+			@Override
+			public void operate(FlowProcess flowProcess,
+					FunctionCall<Void> functionCall) {
+				TupleEntry arangoDoc = functionCall.getArguments();
+				TupleEntry mapped = new TupleEntry(getFieldDeclaration(),
+						Tuple.size(3));
+				mapped.setString("name", arangoDoc.getString("name"));
+				mapped.setString("age", arangoDoc.getString("age"));
+				mapped.setString("city", ((TupleEntry) arangoDoc
+						.getObject("address")).getString("city"));
+
+				functionCall.getOutputCollector().add(mapped);
+			}
 
 		}
 
@@ -158,6 +262,7 @@ public class SourceTapIT {
 			driver.deleteCollection(collection);
 		}
 	}
+
 
 	@AfterClass
 	public static void cleanup() throws ArangoException {

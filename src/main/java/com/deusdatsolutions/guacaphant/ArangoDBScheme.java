@@ -125,6 +125,7 @@ public class ArangoDBScheme extends
 	@Override
 	public void sourcePrepare(FlowProcess<JobConf> flowProcess,
 			SourceCall<Object[], RecordReader> sourceCall) throws IOException {
+		super.sourcePrepare(flowProcess, sourceCall);
 		RecordReader input = sourceCall.getInput();
 		Object[] pair = new Object[] { input.createKey(), input.createValue() };
 		sourceCall.setContext(pair);
